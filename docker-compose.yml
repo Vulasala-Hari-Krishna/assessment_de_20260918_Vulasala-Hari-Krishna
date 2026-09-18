@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-de}
       POSTGRES_DB: ${POSTGRES_DB:-warehouse}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./sql/init:/docker-entrypoint-initdb.d:ro
@@ -27,7 +27,9 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-de}:${POSTGRES_PASSWORD:-de}@postgres:5432/airflow
-      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "false"
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
       _AIRFLOW_WWW_USER_USERNAME: admin
       _AIRFLOW_WWW_USER_PASSWORD: admin
       WAREHOUSE_HOST: postgres
@@ -43,8 +45,14 @@ services:
       - ./config:/opt/airflow/config
       - ./notebooks:/opt/airflow/notebooks
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     command: standalone
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json, urllib.request; health = json.load(urllib.request.urlopen('http://localhost:8080/health', timeout=3)); assert all(health[component]['status'] == 'healthy' for component in ('metadatabase', 'scheduler'))"]
+      interval: 10s
+      timeout: 5s
+      start_period: 45s
+      retries: 12
 
   # Same image and environment as Airflow, so the notebook imports the same code and
   # talks to the same database. http://localhost:8888
@@ -59,9 +67,15 @@ services:
     volumes: *pipeline_volumes
     working_dir: /opt/airflow/notebooks
     ports:
-      - "8888:8888"
+      - "127.0.0.1:8888:8888"
     entrypoint: ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser",
                  "--ServerApp.token=", "--ServerApp.password=", "--ServerApp.root_dir=/opt/airflow"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8888/api', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 12
 
 volumes:
   pgdata:
