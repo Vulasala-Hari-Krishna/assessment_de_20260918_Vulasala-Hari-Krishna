@@ -1,0 +1,1 @@
+"""Shared weather pipeline used by Airflow and the walkthrough."""

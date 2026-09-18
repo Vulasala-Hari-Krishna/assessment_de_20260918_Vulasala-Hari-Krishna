@@ -1,0 +1,106 @@
+version: 2
+
+models:
+  - name: stg_weather
+    description: Typed daily weather at city/date grain. Units are Celsius, millimetres and kilometres per hour, validated at extraction.
+    tests:
+      - unique_city_date:
+          date_column: weather_date
+      - ordered_temperatures
+    columns:
+      - name: city_id
+        description: Trimmed stable city identifier.
+        tests: [not_null]
+      - name: city_name
+        description: Trimmed display name; blank names become null so tests fail.
+        tests: [not_null]
+      - name: weather_date
+        description: Local calendar date parsed from the API daily.time array.
+        tests: [not_null]
+      - name: timezone
+        description: IANA timezone defining the API's daily aggregation boundary.
+        tests: [not_null]
+      - name: temperature_min_c
+        description: Minimum daily temperature at 2 metres, in degrees Celsius.
+        tests:
+          - not_null
+          - between_values: {minimum: -90, maximum: 60}
+      - name: temperature_max_c
+        description: Maximum daily temperature at 2 metres, in degrees Celsius.
+        tests:
+          - not_null
+          - between_values: {minimum: -90, maximum: 60}
+      - name: temperature_mean_c
+        description: Mean daily temperature at 2 metres, in degrees Celsius.
+        tests:
+          - not_null
+          - between_values: {minimum: -90, maximum: 60}
+      - name: precipitation_mm
+        description: Total daily precipitation in millimetres, with a broad physical sanity bound.
+        tests:
+          - not_null
+          - between_values: {minimum: 0, maximum: 2000}
+      - name: wind_speed_max_kmh
+        description: Maximum daily wind speed at 10 metres in kilometres per hour.
+        tests:
+          - not_null
+          - between_values: {minimum: 0, maximum: 500}
+      - name: ingested_at
+        description: Time the raw response last changed in the warehouse.
+        tests: [not_null]
+
+  - name: fct_city_daily
+    description: One business-ready row per city and local day. The API already aggregates daily values; this mart adds temperature range and a wet-day indicator without averaging averages.
+    tests:
+      - unique_city_date:
+          date_column: weather_date
+      - ordered_temperatures
+    columns:
+      - name: city_id
+        description: Stable city identifier; unique with weather_date.
+        tests: [not_null]
+      - name: city_name
+        description: City display name for reports.
+        tests: [not_null]
+      - name: weather_date
+        description: Local calendar date of the weather summary.
+        tests: [not_null]
+      - name: timezone
+        description: IANA timezone used to define the local day.
+        tests: [not_null]
+      - name: temperature_min_c
+        description: Minimum daily temperature at 2 metres in degrees Celsius.
+        tests:
+          - not_null
+          - between_values: {minimum: -90, maximum: 60}
+      - name: temperature_max_c
+        description: Maximum daily temperature at 2 metres in degrees Celsius.
+        tests:
+          - not_null
+          - between_values: {minimum: -90, maximum: 60}
+      - name: temperature_mean_c
+        description: Mean daily temperature at 2 metres in degrees Celsius.
+        tests:
+          - not_null
+          - between_values: {minimum: -90, maximum: 60}
+      - name: temperature_range_c
+        description: Maximum minus minimum daily temperature, in degrees Celsius.
+        tests:
+          - not_null
+          - between_values: {minimum: 0, maximum: 150}
+      - name: precipitation_mm
+        description: Total daily precipitation in millimetres.
+        tests:
+          - not_null
+          - between_values: {minimum: 0, maximum: 2000}
+      - name: is_wet_day
+        description: True when daily precipitation is at least 1 mm; a reporting convention, not an API field.
+        tests: [not_null]
+      - name: wind_speed_max_kmh
+        description: Maximum daily wind speed at 10 metres in kilometres per hour.
+        tests:
+          - not_null
+          - between_values: {minimum: 0, maximum: 500}
+      - name: ingested_at
+        description: Time the source payload last changed, retained for traceability.
+        tests: [not_null]
