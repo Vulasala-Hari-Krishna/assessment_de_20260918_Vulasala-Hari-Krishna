@@ -1,0 +1,28 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: Unmodified daily Open-Meteo responses, with pipeline metadata alongside the JSONB payload.
+    tables:
+      - name: weather_daily
+        description: One response per configured city and logical date; transactional upserts permit safe reruns.
+        tests:
+          - unique_city_date:
+              date_column: logical_date
+        columns:
+          - name: city_id
+            description: Stable city identifier from config/cities.yml.
+            tests: [not_null]
+          - name: city_name
+            description: Configured human-readable city name.
+            tests: [not_null]
+          - name: logical_date
+            description: Requested local calendar date; also the load's natural key with city_id.
+            tests: [not_null]
+          - name: payload
+            description: Complete API response, including original field names, values, units and grid metadata; JSON formatting is not retained.
+            tests: [not_null]
+          - name: ingested_at
+            description: Warehouse timestamp of the most recent changed payload, not the weather observation time.
+            tests: [not_null]
